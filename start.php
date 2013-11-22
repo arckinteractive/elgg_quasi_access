@@ -18,6 +18,7 @@ function elgg_quasi_access_init() {
 
 	// Add metacollections to user access list
 	elgg_register_plugin_hook_handler('access:collections:read', 'user', 'elgg_quasi_access_collections_read', 999);
+	elgg_register_plugin_hook_handler('access:collections:write', 'all', 'elgg_quasi_access_collections_write', 999);
 
 	/**
 	 * @todo: do we need to hook into 'delete' events?

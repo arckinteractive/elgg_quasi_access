@@ -11,4 +11,9 @@
 		<type>elgg_release</type>
 		<version>1.8</version>
 	</requires>
+	<requires>
+		<type>priority</type>
+		<plugin>groups</plugin>
+		<priority>after</priority>
+	</requires>
 </plugin_manifest>

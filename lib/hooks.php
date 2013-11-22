@@ -52,9 +52,17 @@ function elgg_quasi_access_prepare_action_values($hook, $type, $return, $params)
  * We need to allow access to entities that have a metacollection access id:
  * - if metacollection contains ACCESS_FRIENDS and the current user is friends with the metacollection owner
  * - if metacollection contains any of the ACLs that the current user is allowed to see
- * 
+ *
+ * @param string $hook Equals 'access:collections:read'
+ * @param string $type Equals 'user'
+ * @param array $return An array of ACLs before the hook
+ * @param array $params Additional params
+ * @uses $params['user_id'] GUID of the user whose read access array is being obtained
+ *
  * @global type $QUASI_ACCESS_IGNORE_SQL_SUFFIX Flag to prevent infinite loops
  * @global type $QUASI_ACCESS_ACL_CACHE Cache to avoid duplicate calls to the DB
+ *
+ * @return array An array of ACLs, including quasi access metacollection ids
  */
 function elgg_quasi_access_collections_read($hook, $type, $return, $params) {
 
@@ -93,9 +101,9 @@ function elgg_quasi_access_collections_read($hook, $type, $return, $params) {
 				. " JOIN {$dbprefix}entities e ON e.guid = ac.owner_guid" // metacollection entity
 				. " JOIN {$dbprefix}metadata md ON md.entity_guid = e.guid AND md.name_id = $metastring_name_id" // metacollection member acl metadata
 				. " WHERE  md.value_id = $metastring_value_id AND e.owner_guid IN "
-						. " (SELECT r.guid_one "
-							. " FROM {$dbprefix}entity_relationships r"
-							. " WHERE r.relationship='friend' AND r.guid_two=$user_guid)";
+				. " (SELECT r.guid_one "
+				. " FROM {$dbprefix}entity_relationships r"
+				. " WHERE r.relationship='friend' AND r.guid_two=$user_guid)";
 
 		$acls = get_data($query);
 		foreach ($acls as $acl) {
@@ -147,6 +155,48 @@ function elgg_quasi_access_collections_read($hook, $type, $return, $params) {
 		$QUASI_ACCESS_ACL_CACHE[$user_guid] = $return;
 	} else {
 		$return = $QUASI_ACCESS_ACL_CACHE[$user_guid];
+	}
+
+	return $return;
+}
+
+/**
+ * Allows users to use group ACLs to create metacollections when uploading
+ * content outside of a specific group
+ *
+ * @param string $hook Equals 'access:collections:write'
+ * @param string $type Equals 'user'
+ * @param array $return An array of ACLs before the hook
+ * @param array $params Additional params
+ * @uses $params['user_id'] GUID of the user whose read access array is being obtained
+ *
+ * @return array An array of ACLs including group ACLs
+ */
+function elgg_quasi_access_collections_write($hook, $type, $return, $params) {
+
+	$page_owner = elgg_get_page_owner_entity();
+	if (elgg_instanceof($page_owner, 'group') || !elgg_is_logged_in()) {
+		return $return;
+	}
+
+	$user_guid = sanitize_int($params['user_id']);
+
+	$dbprefix = elgg_get_config('dbprefix');
+	$query = "SELECT DISTINCT(ac.id) AS acl_id, e.subtype AS group_subtype, ge.name as group_name"
+			. " FROM {$dbprefix}access_collections ac"
+				. " JOIN {$dbprefix}entities e ON e.guid = ac.owner_guid AND e.type = 'group'"
+			. " JOIN {$dbprefix}groups_entity ge ON ge.guid = e.guid"
+			. " JOIN {$dbprefix}entity_relationships r ON r.guid_two = ge.guid AND r.relationship='member' AND r.guid_one = $user_guid"
+			. " ORDER BY ge.name";
+
+	$group_acls = get_data($query);
+	foreach ($group_acls as $group_acl) {
+		if ($group_acl->acl_id) {
+			$subtype = get_subtype_from_id($group_acl->group_subtype);
+			$subtype_label = ($subtype) ? elgg_echo("item:group:$subtype") : elgg_echo('group');
+			$label = elgg_echo('quasiaccess:group_acl', array($group_acl->group_name, ucwords($subtype_label)));
+			$return[$group_acl->acl_id] = $label;
+		}
 	}
 
 	return $return;

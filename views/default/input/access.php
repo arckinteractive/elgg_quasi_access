@@ -50,26 +50,6 @@ if ($multiple) {
 			$checkbox_options_values[$val] = $key;
 		}
 
-		if (elgg_is_logged_in()) {
-			$user_guid = elgg_get_logged_in_user_guid();
-
-			$dbprefix = elgg_get_config('dbprefix');
-			$query = "SELECT DISTINCT(ac.id), ge.name"
-					. " FROM {$dbprefix}access_collections ac"
-					. " JOIN {$dbprefix}groups_entity ge ON ge.guid = ac.owner_guid"
-					. " JOIN {$dbprefix}entity_relationships r ON r.guid_two = ge.guid AND r.relationship='member' AND r.guid_one = $user_guid"
-					. " ORDER BY ge.name";
-
-			$group_acls = get_data($query);
-		}
-
-		if (count($group_acls)) {
-			foreach ($group_acls as $group_acl) {
-				$label = elgg_echo('quasiaccess:group_acl', array($group_acl->name));
-				$checkbox_options_values[$label] = $group_acl->id;
-			}
-		}
-
 		$vars['options'] = $checkbox_options_values;
 		unset($vars['options_values']);
 
