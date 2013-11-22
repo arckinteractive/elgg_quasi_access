@@ -17,7 +17,7 @@ function elgg_quasi_access_init() {
 	elgg_register_plugin_hook_handler('action', 'all', 'elgg_quasi_access_prepare_action_values', 1);
 
 	// Add metacollections to user access list
-	elgg_register_plugin_hook_handler('access:collections:read', 'user', 'elgg_quasi_access_collections_read', 999);
+	elgg_register_plugin_hook_handler('access:collections:read', 'all', 'elgg_quasi_access_collections_read', 999);
 	elgg_register_plugin_hook_handler('access:collections:write', 'all', 'elgg_quasi_access_collections_write', 999);
 
 	/**
