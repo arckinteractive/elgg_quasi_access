@@ -54,7 +54,7 @@ function elgg_quasi_access_prepare_action_values($hook, $type, $return, $params)
  * - if metacollection contains any of the ACLs that the current user is allowed to see
  *
  * @param string $hook Equals 'access:collections:read'
- * @param string $type Equals 'user'
+ * @param string $type Equals 'all'
  * @param array $return An array of ACLs before the hook
  * @param array $params Additional params
  * @uses $params['user_id'] GUID of the user whose read access array is being obtained
@@ -141,7 +141,8 @@ function elgg_quasi_access_collections_read($hook, $type, $return, $params) {
 				. " FROM {$dbprefix}access_collections ac"
 				. " JOIN {$dbprefix}metadata md ON md.entity_guid = ac.owner_guid AND md.name_id = $metastring_name_id"
 				. " JOIN {$dbprefix}access_collection_membership acm ON acm.access_collection_id = ac.id"
-				. " WHERE acm.access_collection_id NOT IN ($acl_ids_instr) AND md.value_id IN ($metastring_value_ids_instr)";
+				. " WHERE acm.access_collection_id NOT IN ($acl_ids_instr)"
+						. " AND md.value_id IN ($metastring_value_ids_instr)";
 
 		$acls = get_data($query);
 		foreach ($acls as $acl) {
@@ -165,7 +166,7 @@ function elgg_quasi_access_collections_read($hook, $type, $return, $params) {
  * content outside of a specific group
  *
  * @param string $hook Equals 'access:collections:write'
- * @param string $type Equals 'user'
+ * @param string $type Equals 'all'
  * @param array $return An array of ACLs before the hook
  * @param array $params Additional params
  * @uses $params['user_id'] GUID of the user whose read access array is being obtained
@@ -199,5 +200,107 @@ function elgg_quasi_access_collections_write($hook, $type, $return, $params) {
 		}
 	}
 
+	return $return;
+}
+
+
+/**
+ * Rebuild metacollections when the owner no longer belongs to a member acl
+ *
+ * @param string $hook Equals 'access:collections:remove_user'
+ * @param string $type Equals 'all'
+ * @param boolean $return Should this action propagate?
+ * @param array $params Additional params
+ * @uses $params['collection_id'] ACL id
+ * @uses $params['user_guid'] GUID of the user being removed
+ *
+ * @return boolean
+ */
+function elgg_quasi_access_reset_user_metacollections($hook, $type, $return, $params) {
+
+	if (!$return) {
+		return $return; // Another plugin is preventing the user from being removed from ACL
+	}
+
+	$collection_id = elgg_extract('collection_id', $params, 0);
+	$user_guid = elgg_extract('user_guid', $params, 0);
+
+	$ia = elgg_set_ignore_access();
+
+	$metacollections = new ElggBatch('elgg_get_entities_from_metadata', (array(
+		'types' => 'object',
+		'subtypes' => QUASI_ACCESS_METACOLLECTION_SUBTYPE,
+		'owner_guids' => $user_guid,
+		'metadata_names' => 'member_acl',
+		'metadata_values' => $collection_id,
+		'limit' => false
+	)));
+
+	$metacollections->setIncrementOffset(false);
+
+	foreach ($metacollections as $metacollection) {
+
+		$metacollection_id = elgg_quasi_access_get_metacollection_id($metacollection->guid);
+		$member_acl_ids = $metacollection->member_acl;
+
+		$new_member_acl_ids = array_diff($member_acl_ids, array($collection_id));
+		$new_metacollection_id = elgg_quasi_access_get_metacollection_from_members($new_member_acl_ids, $user_guid);
+
+		elgg_quasi_access_set_access_id($metacollection_id, $new_metacollection_id);
+
+		$metacollection->delete();
+		delete_access_collection($metacollection_id);
+	}
+
+	elgg_set_ignore_access($ia);
+	return $return;
+}
+
+/**
+ * Rebuild metacollections when the owner no longer belongs to a member acl
+ *
+ * @param string $hook Equals 'access:collections:deletecollection'
+ * @param string $type Equals 'all'
+ * @param boolean $return Should this action propagate?
+ * @param array $params Additional params
+ * @uses $params['collection_id'] ACL id
+ *
+ * @return boolean
+ */
+function elgg_quasi_access_reset_metacollections($hook, $type, $return, $params) {
+
+	if (!$return) {
+		return $return; // Another plugin is preventing the user from being removed from ACL
+	}
+
+	$collection_id = elgg_extract('collection_id', $params, 0);
+
+	$ia = elgg_set_ignore_access();
+
+	$metacollections = new ElggBatch('elgg_get_entities_from_metadata', (array(
+		'types' => 'object',
+		'subtypes' => QUASI_ACCESS_METACOLLECTION_SUBTYPE,
+		'metadata_names' => 'member_acl',
+		'metadata_values' => $collection_id,
+		'limit' => false
+	)));
+
+	$metacollections->setIncrementOffset(false);
+
+	foreach ($metacollections as $metacollection) {
+
+		$metacollection_id = elgg_quasi_access_get_metacollection_id($metacollection->guid);
+		$member_acl_ids = $metacollection->member_acl;
+
+		$new_member_acl_ids = array_diff($member_acl_ids, array($collection_id));
+		$new_metacollection_id = elgg_quasi_access_get_metacollection_from_members($new_member_acl_ids, $user_guid);
+
+		elgg_quasi_access_set_access_id($metacollection_id, $new_metacollection_id);
+
+		$metacollection->delete();
+		delete_access_collection($metacollection_id);
+	}
+
+	elgg_set_ignore_access($ia);
 	return $return;
 }

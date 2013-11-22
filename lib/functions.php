@@ -6,7 +6,7 @@
  * @param integer $access_id ACL id
  * @return boolean
  */
-function elgg_quasi_access_get_metacollection($access_id = null) {
+function elgg_quasi_access_get_metacollection_object($access_id = null) {
 
 	$acl = get_access_collection($access_id);
 
@@ -27,7 +27,7 @@ function elgg_quasi_access_get_metacollection($access_id = null) {
  */
 function elgg_quasi_access_is_metacollection($access_id = null) {
 
-	return (bool) elgg_quasi_access_get_metacollection($access_id);
+	return (bool) elgg_quasi_access_get_metacollection_object($access_id);
 }
 
 /**
@@ -42,7 +42,7 @@ function elgg_quasi_access_collapse_metacollection($access_id = null) {
 		return $access_id;
 	}
 
-	$metacollection = elgg_quasi_access_get_metacollection($access_id);
+	$metacollection = elgg_quasi_access_get_metacollection_object($access_id);
 
 	if (!$metacollection) {
 		return array($access_id);
@@ -82,15 +82,15 @@ function elgg_quasi_access_get_metacollection_from_members($member_acl_ids = arr
 	$member_acl_ids = elgg_quasi_access_filter_member_acls($member_acl_ids);
 
 	if ($member_acl_ids === false) {
-		return get_default_access($owner);
+		return (int)get_default_access($owner);
 	}
 
 	if (!is_array($member_acl_ids)) {
-		return $member_acl_ids;
+		return (int)$member_acl_ids;
 	}
-
+	
 	if (count($member_acl_ids) == 1) {
-		return $member_acl_ids[0];
+		return (int)reset($member_acl_ids);
 	}
 
 	sort($member_acl_ids, SORT_NUMERIC);
@@ -110,16 +110,37 @@ function elgg_quasi_access_get_metacollection_from_members($member_acl_ids = arr
 		return elgg_quasi_access_create_metacollection($member_acl_ids, $owner->guid);
 	}
 
-	$metacollection_guid = sanitize_int($metacollections[0]->guid);
-	$dbprefix = elgg_get_config('dbprefix');
-	$query = "SELECT * FROM {$dbprefix}access_collections WHERE owner_guid = {$metacollection_guid}";
-	$collection = get_data_row($query);
+	$metacollection = $metacollections[0];
 
-	return ($collection->id) ? (int)$collection->id : get_default_access($owner);
+	return elgg_quasi_access_get_metacollection_id($metacollection->guid);
 }
 
 /**
- * Create a new metacollection
+ * Get ACL id for the give metacollection object guid
+ *
+ * @param integer $metacollection_object_guid
+ * @return integer
+ */
+function elgg_quasi_access_get_metacollection_id($metacollection_object_guid) {
+
+	$metacollection_object = get_entity($metacollection_object_guid);
+
+	if (!elgg_instanceof($metacollection_object, 'object', QUASI_ACCESS_METACOLLECTION_SUBTYPE)) {
+		return get_default_access();
+	}
+
+	if (!$metacollection_object->collection_id) {
+		$dbprefix = elgg_get_config('dbprefix');
+		$query = "SELECT * FROM {$dbprefix}access_collections WHERE owner_guid = {$metacollection_object_guid}";
+		$collection = get_data_row($query);
+		$metacollection_object->collection_id = (int)$collection->id;
+	}
+
+	return $metacollection_object->collection_id;
+}
+
+/**
+ * Create a new metacollection object and metacollection ACL
  *
  * @param array $member_acl_ids
  * @param integer $owner_guid
@@ -160,10 +181,11 @@ function elgg_quasi_access_create_metacollection($member_acl_ids = array(), $own
 
 		$metacollection->hash = $hash;
 		$metacollection->member_acl = $member_acl_ids;
-		
+
 		$id = create_access_collection('metacollection', $metacollection->getGUID());
 		add_user_to_access_collection($owner_guid, $id);
 
+		$metacollection->collection_id = $id;
 	}
 
 	elgg_set_ignore_access($ia);
@@ -180,9 +202,9 @@ function elgg_quasi_access_create_metacollection($member_acl_ids = array(), $own
 function elgg_quasi_access_filter_member_acls($member_acl_ids = array()) {
 
 	if (!is_array($member_acl_ids)) {
-		return false;
+		return null;
 	}
-	
+
 	if (in_array(ACCESS_PRIVATE, $member_acl_ids)) {
 		return ACCESS_PRIVATE;
 	}
@@ -196,4 +218,37 @@ function elgg_quasi_access_filter_member_acls($member_acl_ids = array()) {
 	}
 
 	return array_unique($member_acl_ids, SORT_NUMERIC);
+}
+
+/**
+ * Propagate access id changes across DB tables
+ *
+ * @param int $current_access_id Current access id to look for
+ * @param int $future_access_id Access id to set
+ */
+function elgg_quasi_access_set_access_id($current_access_id, $future_access_id) {
+
+	$current_access_id = sanitize_int($current_access_id);
+	$future_access_id = sanitize_int($future_access_id);
+
+	if ($current_access_id == $future_access_id) {
+		return false;
+	}
+
+	$dbprefix = elgg_get_config('dbprefix');
+
+
+	update_data("UPDATE {$dbprefix}entities SET access_id=$future_access_id"
+			. " WHERE access_id=$current_access_id");
+
+	update_data("UPDATE {$dbprefix}river SET access_id=$future_access_id"
+			. " WHERE access_id=$current_access_id");
+
+	update_data("UPDATE {$dbprefix}metadata SET access_id=$future_access_id"
+			. " WHERE access_id=$current_access_id");
+
+	update_data("UPDATE {$dbprefix}annotations SET access_id=$future_access_id"
+			. " WHERE access_id=$current_access_id");
+
+	return true;
 }

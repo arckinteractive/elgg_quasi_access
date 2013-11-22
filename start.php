@@ -20,7 +20,9 @@ function elgg_quasi_access_init() {
 	elgg_register_plugin_hook_handler('access:collections:read', 'all', 'elgg_quasi_access_collections_read', 999);
 	elgg_register_plugin_hook_handler('access:collections:write', 'all', 'elgg_quasi_access_collections_write', 999);
 
-	/**
-	 * @todo: do we need to hook into 'delete' events?
-	 */
+	// Rebuild metacollections when the metacollection owner no longer belongs to a member acl
+	elgg_register_plugin_hook_handler('access:collections:remove_user', 'all', 'elgg_quasi_access_reset_user_metacollections', 999);
+
+	// Rebuild metacollections when a member acl of a metacollection is deleted
+	elgg_register_plugin_hook_handler('access:collections:deletecollection', 'all', 'elgg_quasi_access_reset_metacollections', 999);
 }
