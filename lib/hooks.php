@@ -297,10 +297,16 @@ function elgg_quasi_access_reset_metacollections($hook, $type, $return, $params)
 
 		elgg_quasi_access_set_access_id($metacollection_id, $new_metacollection_id);
 
-		$metacollection->delete();
 		delete_access_collection($metacollection_id);
 	}
 
+	$collection = get_access_collection($collection_id);
+	$collection_owner = get_entity($collection->owner_guid);
+
+	if (elgg_instanceof($collection_owner, 'object', QUASI_ACCESS_METACOLLECTION_SUBTYPE)) {
+		$collection_owner->delete();
+	}
+	
 	elgg_set_ignore_access($ia);
 	return $return;
 }
