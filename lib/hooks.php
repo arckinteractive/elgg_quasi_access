@@ -52,15 +52,16 @@ function elgg_quasi_access_prepare_action_values($hook, $type, $return, $params)
  * We need to allow access to entities that have a metacollection access id:
  * - if metacollection contains ACCESS_FRIENDS and the current user is friends with the metacollection owner
  * - if metacollection contains any of the ACLs that the current user is allowed to see
- *
+ * - if metacollection contains QUASI_ACCESS_GROUPS and the current user is in the same group as the metacollection owner
+ * 
  * @param string $hook Equals 'access:collections:read'
  * @param string $type Equals 'all'
  * @param array $return An array of ACLs before the hook
  * @param array $params Additional params
  * @uses $params['user_id'] GUID of the user whose read access array is being obtained
  *
- * @global type $QUASI_ACCESS_IGNORE_SQL_SUFFIX Flag to prevent infinite loops
- * @global type $QUASI_ACCESS_ACL_CACHE Cache to avoid duplicate calls to the DB
+ * @global boolean $QUASI_ACCESS_IGNORE_SQL_SUFFIX Flag to prevent infinite loops
+ * @global array $QUASI_ACCESS_ACL_CACHE Cache to avoid duplicate calls to the DB
  *
  * @return array An array of ACLs, including quasi access metacollection ids
  */
@@ -112,6 +113,32 @@ function elgg_quasi_access_collections_read($hook, $type, $return, $params) {
 			}
 		}
 
+		// We need to grab metacollection access ids for metacollections that contain QUASI_ACCESS_GROUPS
+		// and where the current user shares a group with the metacollecion owner
+
+		$metastring_value_id = get_metastring_id(QUASI_ACCESS_GROUPS);
+		if (!$metastring_value_id) {
+			$metastring_value_id = add_metastring(QUASI_ACCESS_GROUPS);
+		}
+
+		$query = "SELECT DISTINCT(ac.id) as acl"
+				. " FROM {$dbprefix}access_collections ac"
+				. " JOIN {$dbprefix}entities e ON e.guid = ac.owner_guid" // metacollection entity
+				. " JOIN {$dbprefix}metadata md ON md.entity_guid = e.guid AND md.name_id = $metastring_name_id" // metacollection member acl metadata
+				. " WHERE  md.value_id = $metastring_value_id "
+				. " AND e.owner_guid != $user_guid AND e.owner_guid IN ( SELECT er1.guid_one FROM {$dbprefix}entity_relationships er1 "
+								. " JOIN {$dbprefix}groups_entity ge ON er1.guid_two = ge.guid AND er1.relationship = 'member'"
+								. " JOIN {$dbprefix}entity_relationships er2 ON er2.guid_two = ge.guid AND er2.relationship = 'member'"
+								. " WHERE er2.guid_one = $user_guid )";
+
+		$acls = get_data($query);
+
+		foreach ($acls as $acl) {
+			if ($acl->acl) {
+				$return[] = (int) $acl->acl;
+			}
+		}
+
 		// We need to grab metacollection access ids for metacollections that contain any
 		// of the current read access ids (except implicit acls)
 
@@ -142,7 +169,7 @@ function elgg_quasi_access_collections_read($hook, $type, $return, $params) {
 				. " JOIN {$dbprefix}metadata md ON md.entity_guid = ac.owner_guid AND md.name_id = $metastring_name_id"
 				. " JOIN {$dbprefix}access_collection_membership acm ON acm.access_collection_id = ac.id"
 				. " WHERE acm.access_collection_id NOT IN ($acl_ids_instr)"
-						. " AND md.value_id IN ($metastring_value_ids_instr)";
+				. " AND md.value_id IN ($metastring_value_ids_instr)";
 
 		$acls = get_data($query);
 		foreach ($acls as $acl) {
@@ -172,8 +199,12 @@ function elgg_quasi_access_collections_read($hook, $type, $return, $params) {
  * @uses $params['user_id'] GUID of the user whose read access array is being obtained
  *
  * @return array An array of ACLs including group ACLs
+ *
+ * @global array $QUASI_ACCESS_GROUPS_ACL_CACHE Cache to avoid duplicate calls to the DB
  */
 function elgg_quasi_access_collections_write($hook, $type, $return, $params) {
+
+	global $QUASI_ACCESS_GROUPS_ACL_CACHE;
 
 	$page_owner = elgg_get_page_owner_entity();
 	if (elgg_instanceof($page_owner, 'group') || !elgg_is_logged_in()) {
@@ -182,27 +213,38 @@ function elgg_quasi_access_collections_write($hook, $type, $return, $params) {
 
 	$user_guid = sanitize_int($params['user_id']);
 
-	$dbprefix = elgg_get_config('dbprefix');
-	$query = "SELECT DISTINCT(ac.id) AS acl_id, e.subtype AS group_subtype, ge.name as group_name"
-			. " FROM {$dbprefix}access_collections ac"
+	if (!isset($QUASI_ACCESS_GROUPS_ACL_CACHE[$user_guid])) {
+		$dbprefix = elgg_get_config('dbprefix');
+		$query = "SELECT DISTINCT(ac.id) AS acl_id, e.subtype AS group_subtype, ge.name as group_name"
+				. " FROM {$dbprefix}access_collections ac"
 				. " JOIN {$dbprefix}entities e ON e.guid = ac.owner_guid AND e.type = 'group'"
-			. " JOIN {$dbprefix}groups_entity ge ON ge.guid = e.guid"
-			. " JOIN {$dbprefix}entity_relationships r ON r.guid_two = ge.guid AND r.relationship='member' AND r.guid_one = $user_guid"
-			. " ORDER BY ge.name";
+				. " JOIN {$dbprefix}groups_entity ge ON ge.guid = e.guid"
+				. " JOIN {$dbprefix}entity_relationships r ON r.guid_two = ge.guid AND r.relationship='member' AND r.guid_one = $user_guid"
+				. " ORDER BY ge.name";
 
-	$group_acls = get_data($query);
-	foreach ($group_acls as $group_acl) {
-		if ($group_acl->acl_id) {
-			$subtype = get_subtype_from_id($group_acl->group_subtype);
-			$subtype_label = ($subtype) ? elgg_echo("item:group:$subtype") : elgg_echo('group');
-			$label = elgg_echo('quasiaccess:group_acl', array($group_acl->group_name, ucwords($subtype_label)));
-			$return[$group_acl->acl_id] = $label;
+		$group_acls = get_data($query);
+
+		if (count($group_acls)) {
+			foreach ($group_acls as $group_acl) {
+				if ($group_acl->acl_id) {
+					$subtype = get_subtype_from_id($group_acl->group_subtype);
+					$subtype_label = ($subtype) ? elgg_echo("item:group:$subtype") : elgg_echo('group');
+					$label = elgg_echo('quasiaccess:group_acl', array($group_acl->group_name, ucwords($subtype_label)));
+					$groups[$group_acl->acl_id] = $label;
+				}
+			}
 		}
+
+		$QUASI_ACCESS_GROUPS_ACL_CACHE[$user_guid] = $groups;
+	}
+
+	if (is_array($QUASI_ACCESS_GROUPS_ACL_CACHE[$user_guid])) {
+		$return[QUASI_ACCESS_GROUPS] = elgg_echo('quasiaccess:all_groups');
+		return $return + $QUASI_ACCESS_GROUPS_ACL_CACHE[$user_guid];
 	}
 
 	return $return;
 }
-
 
 /**
  * Rebuild metacollections when the owner no longer belongs to a member acl
@@ -306,7 +348,7 @@ function elgg_quasi_access_reset_metacollections($hook, $type, $return, $params)
 	if (elgg_instanceof($collection_owner, 'object', QUASI_ACCESS_METACOLLECTION_SUBTYPE)) {
 		$collection_owner->delete();
 	}
-	
+
 	elgg_set_ignore_access($ia);
 	return $return;
 }

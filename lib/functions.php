@@ -82,15 +82,19 @@ function elgg_quasi_access_get_metacollection_from_members($member_acl_ids = arr
 	$member_acl_ids = elgg_quasi_access_filter_member_acls($member_acl_ids);
 
 	if ($member_acl_ids === false) {
-		return (int)get_default_access($owner);
-	}
-
-	if (!is_array($member_acl_ids)) {
-		return (int)$member_acl_ids;
+		$return = (int) get_default_access($owner);
+	} else if (!is_array($member_acl_ids)) {
+		$return = (int) $member_acl_ids;
+	} else if (count($member_acl_ids) == 1) {
+		$return = (int) reset($member_acl_ids);
 	}
 	
-	if (count($member_acl_ids) == 1) {
-		return (int)reset($member_acl_ids);
+	if (!empty($return)) {
+		if ($return == QUASI_ACCESS_GROUPS) {
+			$member_acl_ids = array(QUASI_ACCESS_GROUPS);
+		} else {
+			return $return;
+		}
 	}
 
 	sort($member_acl_ids, SORT_NUMERIC);
@@ -133,7 +137,7 @@ function elgg_quasi_access_get_metacollection_id($metacollection_object_guid) {
 		$dbprefix = elgg_get_config('dbprefix');
 		$query = "SELECT * FROM {$dbprefix}access_collections WHERE owner_guid = {$metacollection_object_guid}";
 		$collection = get_data_row($query);
-		$metacollection_object->collection_id = (int)$collection->id;
+		$metacollection_object->collection_id = (int) $collection->id;
 	}
 
 	return $metacollection_object->collection_id;
@@ -149,18 +153,6 @@ function elgg_quasi_access_get_metacollection_id($metacollection_object_guid) {
 function elgg_quasi_access_create_metacollection($member_acl_ids = array(), $owner_guid = null) {
 
 	$member_acl_ids = elgg_quasi_access_filter_member_acls($member_acl_ids);
-
-	if ($member_acl_ids === false) {
-		return get_default_access(get_entity($owner_guid));
-	}
-
-	if (!is_array($member_acl_ids)) {
-		return $member_acl_ids;
-	}
-
-	if (count($member_acl_ids) == 1) {
-		return $member_acl_ids[0];
-	}
 
 	if (!$owner_guid) {
 		$owner_guid = elgg_get_logged_in_user_guid();
@@ -198,6 +190,8 @@ function elgg_quasi_access_create_metacollection($member_acl_ids = array(), $own
  *
  * @param array $member_acl_ids
  * @return mixed array or integer
+ *
+ * @global array $QUASI_ACCESS_GROUPS_ACL_CACHE Cache to avoid duplicate calls to the DB
  */
 function elgg_quasi_access_filter_member_acls($member_acl_ids = array()) {
 
@@ -215,6 +209,18 @@ function elgg_quasi_access_filter_member_acls($member_acl_ids = array()) {
 
 	if (in_array(ACCESS_PUBLIC, $member_acl_ids)) {
 		return ACCESS_PUBLIC;
+	}
+
+	if (in_array(QUASI_ACCESS_GROUPS, $member_acl_ids)) {
+		foreach ($member_acl_ids as $key => $acl_id) {
+			if (!in_array($acl_id, array(ACCESS_FRIENDS, QUASI_ACCESS_GROUPS))) {
+				$collection = get_access_collection($acl_id);
+				$owner = get_entity($collection->owner_guid);
+				if (elgg_instanceof($owner, 'group')) {
+					unset($member_acl_ids[$key]);
+				}
+			}
+		}
 	}
 
 	return array_unique($member_acl_ids, SORT_NUMERIC);
