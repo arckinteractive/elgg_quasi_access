@@ -4,8 +4,8 @@
 	<author>Ismayil Khayredinov (ismayil@arkcinteractive.com)</author>
 	<version>1.0.0-dev</version>
 	<description>Define access via multiple ACLs (meta-collections)</description>
-	<copyright>2013 (c) ArckInteractive</copyright>
-    <website>http://www.hypejunction.com/</website>
+	 <copyright>Copyright 2008-2013 Arck Interactive, LLC</copyright>
+    <website>http://www.arckinteractive.com/</website>
     <license>GNU GPL v2</license>
 	<requires>
 		<type>elgg_release</type>

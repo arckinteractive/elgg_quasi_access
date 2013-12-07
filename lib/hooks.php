@@ -16,7 +16,7 @@
 function elgg_quasi_access_prepare_action_values($hook, $type, $return, $params) {
 
 	$quasi_access_inputs = get_input('__quasi_access_inputs');
-
+	
 	if (!is_array($quasi_access_inputs)) {
 		return $return;
 	}
@@ -27,20 +27,24 @@ function elgg_quasi_access_prepare_action_values($hook, $type, $return, $params)
 
 		$metacollection_id = elgg_quasi_access_get_metacollection_from_members($user_input, get_input('__quasi_access_owner_guid', null));
 
-		$query = http_build_query(array(
+		$query[] = http_build_query(array(
 			$input_name => $metacollection_id
 		));
+	}
 
-		$arr = array();
-		parse_str($query, $arr);
+	$query = implode("&", $query);
 
-		foreach ($arr as $expected_name => $expected_value) {
-			$user_value = get_input($expected_name);
-			if (is_array($user_value)) {
-				$expected_value = array_merge_recursive($user_value, $expected_value);
-			}
-			set_input($expected_name, $expected_value);
+	$arr = array();
+	parse_str($query, $arr);
+
+	foreach ($arr as $expected_name => $expected_value) {
+		$user_value = get_input($expected_name);
+
+		if (is_array($user_value)) {
+			$expected_value = array_merge_recursive($user_value, $expected_value);
 		}
+
+		set_input($expected_name, $expected_value);
 	}
 
 	set_input('__quasi_access_inputs', null);
@@ -127,9 +131,9 @@ function elgg_quasi_access_collections_read($hook, $type, $return, $params) {
 				. " JOIN {$dbprefix}metadata md ON md.entity_guid = e.guid AND md.name_id = $metastring_name_id" // metacollection member acl metadata
 				. " WHERE  md.value_id = $metastring_value_id "
 				. " AND e.owner_guid != $user_guid AND e.owner_guid IN ( SELECT er1.guid_one FROM {$dbprefix}entity_relationships er1 "
-								. " JOIN {$dbprefix}groups_entity ge ON er1.guid_two = ge.guid AND er1.relationship = 'member'"
-								. " JOIN {$dbprefix}entity_relationships er2 ON er2.guid_two = ge.guid AND er2.relationship = 'member'"
-								. " WHERE er2.guid_one = $user_guid )";
+				. " JOIN {$dbprefix}groups_entity ge ON er1.guid_two = ge.guid AND er1.relationship = 'member'"
+				. " JOIN {$dbprefix}entity_relationships er2 ON er2.guid_two = ge.guid AND er2.relationship = 'member'"
+				. " WHERE er2.guid_one = $user_guid )";
 
 		$acls = get_data($query);
 
@@ -350,5 +354,25 @@ function elgg_quasi_access_reset_metacollections($hook, $type, $return, $params)
 	}
 
 	elgg_set_ignore_access($ia);
+	return $return;
+}
+
+
+/**
+ * Replace input/access view with a quasi_access input, if $vars['multiple'] is set to true
+ *
+ * @param string $hook Equals 'view'
+ * @param string $view Equals 'input/access'
+ * @param string $return Current view
+ * @param array $params An array of parameters
+ * @return string Replacement view
+ */
+function elgg_quasi_access_input_view_replacement($hook, $view, $return, $params) {
+
+	$vars = elgg_extract('vars', $params);
+	if (elgg_extract('multiple', $vars, false)) {
+		return elgg_view('input/quasi_access', $vars);
+	}
+
 	return $return;
 }

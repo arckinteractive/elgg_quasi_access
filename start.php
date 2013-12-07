@@ -27,4 +27,7 @@ function elgg_quasi_access_init() {
 
 	// Rebuild metacollections when a member acl of a metacollection is deleted
 	elgg_register_plugin_hook_handler('access:collections:deletecollection', 'all', 'elgg_quasi_access_reset_metacollections', 999);
+
+	// Check if 'multiple' parameter has been passed to the access input and serve quasi_access input if so
+	elgg_register_plugin_hook_handler('view', 'input/access', 'elgg_quasi_access_input_view_replacement');
 }

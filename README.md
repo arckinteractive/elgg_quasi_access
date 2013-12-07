@@ -1,11 +1,22 @@
 Elgg QuasiAccess
 ================
 
-### This is proof-of-concept. Abstain from using in product just yet.###
+### This is a proof-of-concept. Abstain from using on production sites without heavy testing ###
 
-Allow access to multiple ACLs using metacollection entities and magic.
+The plugins takes on a different approach to allow metacollection access.
+Instead of performing expensive maintenance of access collections, it uses
+reverse DB querying to determine what metacollections the user belongs to.
 
-## To-Do ##
-* Look at use case scenarios to determine whether or not metacollections need
-to be rebuilt/reset when users and/or content are deleted
-* Build actual ACLs when the plugin is deactivated
+To add an input field to your form, use:
+```
+elgg_view('input/access', array(
+	'multiple' => true,
+	'value' => $entity->access_id
+));
+```
+or add the quasi_access input:
+```
+elgg_view('input/quasi_access', array(
+	'value' => $entity->access_id
+));
+```
