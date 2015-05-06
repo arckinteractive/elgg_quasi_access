@@ -372,9 +372,10 @@ function elgg_quasi_access_filter_vars($hook, $view, $vars, $params) {
 		$vars = elgg_extract('vars', $params);
 	}
 
+	$name = elgg_extract('name', $vars);
 	$multiple = elgg_extract('multiple', $vars);
 
-	if ($multiple === true || (elgg_get_plugin_setting('default_multiple', 'elgg_quasi_access') && $multiple !== false)) {
+	if ($multiple === true || (elgg_get_plugin_setting('default_multiple', 'elgg_quasi_access') && $multiple !== false && $name == 'access_id')) {
 		// Force multiple
 		$vars['multiple'] = true;
 
