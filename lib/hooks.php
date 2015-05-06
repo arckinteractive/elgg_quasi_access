@@ -357,24 +357,37 @@ function elgg_quasi_access_reset_metacollections($hook, $type, $return, $params)
 	return $return;
 }
 
-
 /**
- * Replace input/access view with a quasi_access input, if $vars['multiple'] is set to true
+ * Filter access input vars
  *
- * @param string $hook Equals 'view'
- * @param string $view Equals 'input/access'
- * @param string $return Current view
- * @param array $params An array of parameters
- * @return string Replacement view
+ * @param string $hook   "view_vars"
+ * @param string $view   "input/access"
+ * @param array  $vars   Vars
+ * @param array  $params Hook params
+ * @return array
  */
-function elgg_quasi_access_input_view_replacement($hook, $view, $return, $params) {
+function elgg_quasi_access_filter_vars($hook, $view, $vars, $params) {
 
-	$vars = elgg_extract('vars', $params);
+	if (!is_array($vars)) {
+		$vars = elgg_extract('vars', $params);
+	}
+
 	$multiple = elgg_extract('multiple', $vars);
 
 	if ($multiple === true || (elgg_get_plugin_setting('default_multiple', 'elgg_quasi_access') && $multiple !== false)) {
-		return elgg_view('input/quasi_access', $vars);
+		// Force multiple
+		$vars['multiple'] = true;
+
+		// Store original input name
+		$vars['original_name'] = $vars['name'];
+
+		// Replace input name with a hash, so that we can substitute multiple ACLs with a metacollection id
+		$name_hash = md5(serialize($vars));
+		$vars['name'] = $name_hash;
+		
+		// Collapse the value into metacollection member ids
+		$vars['value'] = elgg_quasi_access_collapse_metacollection($vars['value']);
 	}
 
-	return $return;
+	return $vars;
 }

@@ -28,12 +28,15 @@ function elgg_quasi_access_init() {
 	// Rebuild metacollections when a member acl of a metacollection is deleted
 	elgg_register_plugin_hook_handler('access:collections:deletecollection', 'all', 'elgg_quasi_access_reset_metacollections', 999);
 
-	// Check if 'multiple' parameter has been passed to the access input and serve quasi_access input if so
-	elgg_register_plugin_hook_handler('view', 'input/access', 'elgg_quasi_access_input_view_replacement');
+	// Filter access input vars
+	elgg_register_plugin_hook_handler('view_vars', 'input/access', 'elgg_quasi_access_filter_vars');
 
 	elgg_register_css('chosen', '/mod/elgg_quasi_access/vendors/chosen_v1.4.2/chosen.min.css');
 	elgg_define_js('chosen', array(
 		'src' => '/mod/elgg_quasi_access/vendors/chosen_v1.4.2/chosen.jquery.min.js',
 		'deps' => array('jquery'),
 	));
+
+	elgg_extend_view('js/initialize_elgg', 'quasi_access/config');
+	elgg_extend_view('input/access', 'quasi_access/init');
 }
