@@ -91,15 +91,12 @@ function elgg_quasi_access_collections_read($hook, $type, $return, $params) {
 			return $return;
 		}
 
-		$metastring_name_id = get_metastring_id('member_acl');
+		$metastring_name_id = elgg_get_metastring_id('member_acl');
 
 		// We need to grab metacollection access ids for metacollections that contain ACCESS_FRIENDS
 		// and where the current user is a friend of the metacollecion owner
 
-		$metastring_value_id = get_metastring_id(ACCESS_FRIENDS);
-		if (!$metastring_value_id) {
-			$metastring_value_id = add_metastring(ACCESS_FRIENDS);
-		}
+		$metastring_value_id = elgg_get_metastring_id(ACCESS_FRIENDS);
 
 		$query = "SELECT DISTINCT(ac.id) as acl"
 				. " FROM {$dbprefix}access_collections ac"
@@ -120,10 +117,7 @@ function elgg_quasi_access_collections_read($hook, $type, $return, $params) {
 		// We need to grab metacollection access ids for metacollections that contain QUASI_ACCESS_GROUPS
 		// and where the current user shares a group with the metacollecion owner
 
-		$metastring_value_id = get_metastring_id(QUASI_ACCESS_GROUPS);
-		if (!$metastring_value_id) {
-			$metastring_value_id = add_metastring(QUASI_ACCESS_GROUPS);
-		}
+		$metastring_value_id = elgg_get_metastring_id(QUASI_ACCESS_GROUPS);
 
 		$query = "SELECT DISTINCT(ac.id) as acl"
 				. " FROM {$dbprefix}access_collections ac"
@@ -150,7 +144,7 @@ function elgg_quasi_access_collections_read($hook, $type, $return, $params) {
 		$allowed_acl_ids = array_diff($return, $implicit_acls);
 
 		foreach ($allowed_acl_ids as $id) {
-			$metastring_value_id = get_metastring_id($id);
+			$metastring_value_id = elgg_get_metastring_id($id);
 			if (!$metastring_value_id) {
 				$metastring_value_id = add_metastring($id);
 			}
