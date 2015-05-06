@@ -9,7 +9,7 @@
     <license>GNU GPL v2</license>
 	<requires>
 		<type>elgg_release</type>
-		<version>1.10</version>
+		<version>1.11</version>
 	</requires>
 	<requires>
 		<type>priority</type>
