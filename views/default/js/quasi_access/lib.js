@@ -51,16 +51,7 @@ define(['jquery', 'elgg', 'chosen'], function ($, elgg) {
 		},
 		isExclusiveAcl: function (id) {
 			return this.exclusiveAcls.indexOf(id) !== -1;
-		},
-		disableOptions: function (values) {
-			var self = this;
-			self.$input.find('option').each(function () {
-				$(this).prop('disabled', false);
-				if (values.length && values.indexOf($(this).attr('value')) !== -1) {
-					$(this).prop('disabled', true);
-				}
-			});
-		},
+		}
 	};
 
 	return QuasiAccess;
