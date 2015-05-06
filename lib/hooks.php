@@ -91,15 +91,12 @@ function elgg_quasi_access_collections_read($hook, $type, $return, $params) {
 			return $return;
 		}
 
-		$metastring_name_id = get_metastring_id('member_acl');
+		$metastring_name_id = elgg_get_metastring_id('member_acl');
 
 		// We need to grab metacollection access ids for metacollections that contain ACCESS_FRIENDS
 		// and where the current user is a friend of the metacollecion owner
 
-		$metastring_value_id = get_metastring_id(ACCESS_FRIENDS);
-		if (!$metastring_value_id) {
-			$metastring_value_id = add_metastring(ACCESS_FRIENDS);
-		}
+		$metastring_value_id = elgg_get_metastring_id(ACCESS_FRIENDS);
 
 		$query = "SELECT DISTINCT(ac.id) as acl"
 				. " FROM {$dbprefix}access_collections ac"
@@ -120,10 +117,7 @@ function elgg_quasi_access_collections_read($hook, $type, $return, $params) {
 		// We need to grab metacollection access ids for metacollections that contain QUASI_ACCESS_GROUPS
 		// and where the current user shares a group with the metacollecion owner
 
-		$metastring_value_id = get_metastring_id(QUASI_ACCESS_GROUPS);
-		if (!$metastring_value_id) {
-			$metastring_value_id = add_metastring(QUASI_ACCESS_GROUPS);
-		}
+		$metastring_value_id = elgg_get_metastring_id(QUASI_ACCESS_GROUPS);
 
 		$query = "SELECT DISTINCT(ac.id) as acl"
 				. " FROM {$dbprefix}access_collections ac"
@@ -150,7 +144,7 @@ function elgg_quasi_access_collections_read($hook, $type, $return, $params) {
 		$allowed_acl_ids = array_diff($return, $implicit_acls);
 
 		foreach ($allowed_acl_ids as $id) {
-			$metastring_value_id = get_metastring_id($id);
+			$metastring_value_id = elgg_get_metastring_id($id);
 			if (!$metastring_value_id) {
 				$metastring_value_id = add_metastring($id);
 			}
@@ -357,22 +351,38 @@ function elgg_quasi_access_reset_metacollections($hook, $type, $return, $params)
 	return $return;
 }
 
-
 /**
- * Replace input/access view with a quasi_access input, if $vars['multiple'] is set to true
+ * Filter access input vars
  *
- * @param string $hook Equals 'view'
- * @param string $view Equals 'input/access'
- * @param string $return Current view
- * @param array $params An array of parameters
- * @return string Replacement view
+ * @param string $hook   "view_vars"
+ * @param string $view   "input/access"
+ * @param array  $vars   Vars
+ * @param array  $params Hook params
+ * @return array
  */
-function elgg_quasi_access_input_view_replacement($hook, $view, $return, $params) {
+function elgg_quasi_access_filter_vars($hook, $view, $vars, $params) {
 
-	$vars = elgg_extract('vars', $params);
-	if (elgg_extract('multiple', $vars, false)) {
-		return elgg_view('input/quasi_access', $vars);
+	if (!is_array($vars)) {
+		$vars = elgg_extract('vars', $params);
 	}
 
-	return $return;
+	$name = elgg_extract('name', $vars);
+	$multiple = elgg_extract('multiple', $vars);
+
+	if ($multiple === true || (elgg_get_plugin_setting('default_multiple', 'elgg_quasi_access') && $multiple !== false && $name == 'access_id')) {
+		// Force multiple
+		$vars['multiple'] = true;
+
+		// Store original input name
+		$vars['original_name'] = $vars['name'];
+
+		// Replace input name with a hash, so that we can substitute multiple ACLs with a metacollection id
+		$name_hash = md5(serialize($vars));
+		$vars['name'] = $name_hash;
+		
+		// Collapse the value into metacollection member ids
+		$vars['value'] = elgg_quasi_access_collapse_metacollection($vars['value']);
+	}
+
+	return $vars;
 }
