@@ -10,8 +10,8 @@ $entity = elgg_extract('entity', $vars);
 			'name' => 'params[default_multiple]',
 			'value' => $entity->default_multiple,
 			'options_values' => array(
-				0 => elgg_echo('question:no'),
-				1 => elgg_echo('question:yes'),
+				0 => elgg_echo('option:no'),
+				1 => elgg_echo('option:yes'),
 			)
 		));
 	?>
