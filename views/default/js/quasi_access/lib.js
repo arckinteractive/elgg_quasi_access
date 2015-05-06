@@ -43,7 +43,7 @@ define(['jquery', 'elgg', 'chosen'], function ($, elgg) {
 			if (!val || val.length === 0) {
 				self.$input.find('option').prop('disabled', false);
 			} else if (val.filter(self.isExclusiveAcl, this).length) {
-				self.$input.find('option').prop('disabled', true);
+				self.$input.find('option:not(:selected)').prop('disabled', true);
 			} else {
 				self.$input.find('option[data-exclusive]').prop('disabled', true);
 			}
