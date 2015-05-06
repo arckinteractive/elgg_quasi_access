@@ -30,4 +30,10 @@ function elgg_quasi_access_init() {
 
 	// Check if 'multiple' parameter has been passed to the access input and serve quasi_access input if so
 	elgg_register_plugin_hook_handler('view', 'input/access', 'elgg_quasi_access_input_view_replacement');
+
+	elgg_register_css('chosen', '/mod/elgg_quasi_access/vendors/chosen_v1.4.2/chosen.min.css');
+	elgg_define_js('chosen', array(
+		'src' => '/mod/elgg_quasi_access/vendors/chosen_v1.4.2/chosen.jquery.min.js',
+		'deps' => array('jquery'),
+	));
 }
