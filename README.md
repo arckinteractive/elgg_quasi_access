@@ -1,7 +1,6 @@
 Elgg QuasiAccess
 ================
-
-### This is a proof-of-concept. Abstain from using on production sites without heavy testing ###
+!(Elgg 1.11.x)[https://img.shields.io/badge/Elgg-1.11.x-yellowgreen.svg]
 
 The plugins takes on a different approach to allow metacollection access.
 Instead of performing expensive maintenance of access collections, it uses
