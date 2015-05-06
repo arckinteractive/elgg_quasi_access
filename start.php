@@ -31,7 +31,6 @@ function elgg_quasi_access_init() {
 	// Filter access input vars
 	elgg_register_plugin_hook_handler('view_vars', 'input/access', 'elgg_quasi_access_filter_vars');
 
-	elgg_register_css('chosen', '/mod/elgg_quasi_access/vendors/chosen_v1.4.2/chosen.min.css');
 	elgg_define_js('chosen', array(
 		'src' => '/mod/elgg_quasi_access/vendors/chosen_v1.4.2/chosen.jquery.min.js',
 		'deps' => array('jquery'),
