@@ -370,7 +370,9 @@ function elgg_quasi_access_reset_metacollections($hook, $type, $return, $params)
 function elgg_quasi_access_input_view_replacement($hook, $view, $return, $params) {
 
 	$vars = elgg_extract('vars', $params);
-	if (elgg_extract('multiple', $vars, false)) {
+	$multiple = elgg_extract('multiple', $vars);
+
+	if ($multiple === true || (elgg_get_plugin_setting('default_multiple', 'elgg_quasi_access') && $multiple !== false)) {
 		return elgg_view('input/quasi_access', $vars);
 	}
 
